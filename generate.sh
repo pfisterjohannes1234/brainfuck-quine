@@ -39,5 +39,7 @@ tr -cd '][+,.><-'  < ./temporary/printcode.bf > ./temporary/printcode_minimal.bf
 
 cat ./temporary/generatecode.bf ./temporary/printcode_minimal.bf > quine.bf
 
+#Generate compiled version of the C source code, for debugging the logic
+gcc -DDEBUG=1 -DDEBUG_ADDRESS=1 -ggdb -Wall -Wextra template.c -o ./temporary/c-test-debug
 
 
