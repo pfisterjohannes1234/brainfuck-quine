@@ -14,12 +14,12 @@ First, we have a C Program that prints brainfuck code to generate the values in 
  print Part A, see later) and after that it prints the values of the array (used to print Part B).
 This Program is specially crafted so that `convert.py` can convert it (after preprocessing) to
  Brainfuck code.
-With this one part, we call it part B, of the brainfuck program is created.
-This is stored in ./temporary/printcode.bf
+With this one part, part B, of the brainfuck program is created.
+This is stored in `./temporary/printcode.bf`
 
 The other brainfuck part, part A, creates the data used to print.
 It must generate the data used in the part B of the brainfuck program.
-We generate part A automatically. For that we feed part B to ascii-brainfuck which generates the
+We generate part A automatically. For that we feed part B to `ascii-brainfuck` which generates the
  brainfuck programm to fill the data we need to print Part B.
 This is stored in `./temporary/generatecode.bf`
 
