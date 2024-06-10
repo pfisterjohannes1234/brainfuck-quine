@@ -194,6 +194,10 @@ int main()
             data[p+OS_CHAR]=testdata[i];
             p=p+STEP;
           }
+        p = p-STEP;
+        while(data[p+OS_CHAR])
+          { p = p-STEP; }
+        p = p+STEP;
       #endif // !TESTCODE
     #endif // GENERATE_SIMPLE
     #if DEBUG_ADDRESS
@@ -214,14 +218,15 @@ int main()
     while(data[p+OS_CHAR])
       {
         data[p+OS_DATA] = data[p+OS_DATA] + '>';
-        data[p+OS_COUNER] = data[p+OS_CHAR];
+        STEP_N( write_char(data[p+OS_DATA]); )
+
+        data[p+OS_DATA] += '+' - '>';
+        data[p+OS_COUNER] += data[p+OS_CHAR];
         while(data[p+OS_COUNER])
           {
             write_char(data[p+OS_DATA]);
             data[p+OS_COUNER]--;
           }
-        data[p+OS_DATA] = data[p+OS_DATA] + '+'-'-';
-        STEP_N( write_char(data[p+OS_DATA]); )
         p=p+STEP;
       }
 
