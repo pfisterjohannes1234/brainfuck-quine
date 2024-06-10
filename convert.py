@@ -100,19 +100,25 @@ class Output(object):
     "Clear a cell and set it to a value after that."
     command = '[-]'+('+' if value>0 else '-')*abs(value)
     self.commandOffset(command,offset)
-  def copyValue(self,sourceOffset,targetOffset,temporaryOffset):
+  def copyValue(self,sourceOffset,targetOffset,temporaryOffset,isAddEqualCommand):
     """
     Copy a value from one cell with offset sourceOffset to a different cell with offset
      targetOffset. Use the cell with offset temporaryOffset not lose the value in the source cell
+
+    If isAddEqualCommand is used, we don't clear the target cell but add or subtract to the current 
+     value. This generates shorter code.
     """
 
     #clear the target cell
-    self.commandOffset('[-]',targetOffset)
+    if not isAddEqualCommand:
+      self.commandOffset('[-]',targetOffset)
+
+    s = '+' if not isAddEqualCommand or isAddEqualCommand==1 else '-'
 
     #Copy the value from source to target and the temporary cell. source cell will lose the value
     self.commandOffset('[-',sourceOffset)
     self.commandOffset('+',temporaryOffset)
-    self.commandOffset('+',targetOffset)
+    self.commandOffset(s,targetOffset)
     self.commandOffset(']',sourceOffset)
 
     #Move the value from the temporary cell back to the source cell, so the source has the original
@@ -121,50 +127,24 @@ class Output(object):
     self.commandOffset('+',sourceOffset)
     self.commandOffset(']',temporaryOffset)
 
-  def copyAddFrom(self,sourceOffset,targetOffset,temporaryOffset):
-    """
-    Copys a value from one cell with offset sourceOffset and adds it to a different cell with offset
-     targetOffset. It restores the data in sourceOffset.
-    Generates shorter code than a simple =, since we don't need to clear the target cell.  but it is
-     longer than moveAddFrom(), since we need to restore the value afterwards
-    """
-
-    #Copy the value from source to target and the temporary cell. source cell will lose the value
-    self.commandOffset('[-',sourceOffset)
-    self.commandOffset('+',temporaryOffset)
-    self.commandOffset('+',targetOffset)
-    self.commandOffset(']',sourceOffset)
-
-    #Move the value from the temporary cell back to the source cell, so the source has the original
-    # value
-    self.commandOffset('[-',temporaryOffset)
-    self.commandOffset('+',sourceOffset)
-    self.commandOffset(']',temporaryOffset)
-
-  def moveValue(self,sourceOffset,targetOffset):
+  def moveValue(self,sourceOffset,targetOffset,isAddEqualCommand):
     """
     Moves a value from one cell with offset sourceOffset to a different cell with offset
      targetOffset. Destroys the value in sourceOffset
+    If isAddEqualCommand is used, we don't clear the target cell but add or subtract to the current 
+     value. This generates shorter code
     """
 
     #clear the target cell
-    self.commandOffset('[-]',targetOffset)
+    if not isAddEqualCommand:
+      self.commandOffset('[-]',targetOffset)
+
+    s = '+' if not isAddEqualCommand or isAddEqualCommand==1 else '-'
+
 
     #Copy the value from source to target and the temporary cell. source cell will lose the value
     self.commandOffset('[-',sourceOffset)
-    self.commandOffset('+',targetOffset)
-    self.commandOffset(']',sourceOffset)
-
-  def moveAddFrom(self,sourceOffset,targetOffset):
-    """
-    Moves a value from one cell with offset sourceOffset and adds it to a different cell with offset
-     targetOffset. Destroys the value in sourceOffset
-    Generates shorter code than moveValue(), since we don't need to clear the target cell before
-    """
-
-    #Copy the value from source to target and the temporary cell. source cell will lose the value
-    self.commandOffset('[-',sourceOffset)
-    self.commandOffset('+',targetOffset)
+    self.commandOffset(s ,targetOffset)
     self.commandOffset(']',sourceOffset)
 
   def addOffset(self,offset,value):
@@ -228,7 +208,7 @@ def handleWriteChar(statements):
     raise SyntaxError("Found additional data after write_char ( data[...] ) ",statements)
   output.commandOffset('.',offset)
 
-def handleMoveFrom(statements,targetOffset):
+def handleMoveFrom(statements,targetOffset,isAddEqualCommand):
   " Call this to handle a statement to move a character/byte "
   if len(statements)<4 or statements[1]!='(' or statements[-1]!=')':
     raise SyntaxError("Unexpected data for move_from",statements)
@@ -236,27 +216,8 @@ def handleMoveFrom(statements,targetOffset):
   startOffset,statements = getAccessOffset(statements[2:-1])
   if len(statements):
     raise SyntaxError("Found additional data after move_from ( data[...] ) ",statements)
-  output.moveValue(startOffset,targetOffset);
+  output.moveValue(startOffset,targetOffset,isAddEqualCommand);
 
-def handleMoveAddFrom(statements,targetOffset):
-  " Call this to handle a statement to move and add a character/byte to a different cell"
-  if len(statements)<4 or statements[1]!='(' or statements[-1]!=')':
-    raise SyntaxError("Unexpected data for moveAddFrom",statements)
-
-  startOffset,statements = getAccessOffset(statements[2:-1])
-  if len(statements):
-    raise SyntaxError("Found additional data after moveAddFrom ( data[...] ) ",statements)
-  output.moveAddFrom(startOffset,targetOffset);
-
-def handleCopyAddFrom(statements,targetOffset,temporaryOffset):
-  " Call this to handle a statement to copy and add a character/byte to a different cell"
-  if len(statements)<4 or statements[1]!='(' or statements[-1]!=')':
-    raise SyntaxError("Unexpected data for copyAddFrom",statements)
-
-  startOffset,statements = getAccessOffset(statements[2:-1])
-  if len(statements):
-    raise SyntaxError("Found additional data after copyAddFrom ( data[...] ) ",statements)
-  output.copyAddFrom(startOffset,targetOffset,temporaryOffset);
 
 
 def handleWhile(statements):
@@ -310,6 +271,8 @@ def handleExpression(statements):
   #add is either the value we add to a cell or pointer / index. Or a absolute value which we use to
   # set a cell
   add=0
+  isAddEqualCommand=0
+  expectAddSub=0
   startOffset=None #set this when we copy a value from one cell (to a other or the same cell)
   if len(statements)<2:
     raise SyntaxError("not enough elements for assignment",statements)
@@ -320,13 +283,22 @@ def handleExpression(statements):
     elif len(statements)==2 and statements[0]=='+' and statements[1]=='+':
       startOffset=targetOffset
       add=+1
+    elif len(statements)>2 and statements[0]=='+' and statements[1]=='=':
+      startOffset=targetOffset
+      isAddEqualCommand=1
+      expectAddSub=1
+    elif len(statements)>2 and statements[0]=='-' and statements[1]=='=':
+      startOffset=targetOffset
+      isAddEqualCommand=-1
+      expectAddSub=1
     else:
       raise SyntaxError("expected =, ++ or -- got "+statements[0],statements)
-    statements=[]
+    statements=statements[2:]
   else:
     statements=statements[1:]
 
 
+  if len(statements)>1:
     if statements[0]=='data':
       if setP:
         raise SyntaxError("can not set p from data",statements)
@@ -335,7 +307,8 @@ def handleExpression(statements):
     elif statements[0]=='p':
       if not setP:
         raise SyntaxError("can not set data from p",statements)
-      statements=statements[1:]
+      if not isAddEqualCommand:
+        statements=statements[1:]
 
 
   #We accept any +/-<N> after it, where N maybe an absolute value or a character constant
@@ -343,47 +316,47 @@ def handleExpression(statements):
   # command
   isReadChar=0
   while len(statements):
-    if statements[0][0] in '0123456789':
-      if add or isReadChar:
-        raise SyntaxError("Unexpected integer",statements)
-      add = int(statements[0])
-      statements=statements[1:]
 
-    elif statements[0]=='+' or statements[0]=='-':
-      isAddition = statements[0]=='+'
+    if statements[0]=='+' or statements[0]=='-' or expectAddSub:
+      isAddition = statements[0]=='+' if not expectAddSub else isAddEqualCommand>0
       n=0
-      if len(statements)<2:
-        raise SyntaxError("Expected something after +",statements)
-      if statements[1]=="'":
-        if len(statements)<3:
+      if not expectAddSub:
+        if len(statements)<2:
+          raise SyntaxError("Expected something after +",statements)
+        statements = statements[1:]
+      expectAddSub=0
+      if statements[0]=="'":
+        if len(statements)<2:
           raise SyntaxError("Not enough elements for character literal",statements)
-        if statements[3]!="'":
+        if statements[2]!="'":
           raise SyntaxError("No valid character literal",statements)
-        n = ord(statements[2])
-        statements=statements[4:]
+        n = ord(statements[1])
+        statements=statements[3:]
       else:
-        n = int(statements[1])
-        statements=statements[2:]
+        n = int(statements[0])
+        statements=statements[1:]
       if isAddition:
         add = add + n
       else:
         add = add - n
+
+    elif statements[0][0] in '0123456789':
+      if add or isReadChar:
+        raise SyntaxError("Unexpected integer",statements)
+      add = int(statements[0])
+      statements=statements[1:]
 
     elif statements[0]=='read_char':
       if len(statements)<3:
         raise SyntaxError("Expected () after read_char",statements)
       if statements[1]!="(" or statements[2]!=')' :
         raise SyntaxError("Expected () after read_char",statements)
+      if isAddEqualCommand:
+        raise SyntaxError("can not use +=/-= with read_char",statements)
       isReadChar=1
       statements=statements[3:]
     elif statements[0]=='move_from':
-      handleMoveFrom(statements,targetOffset);
-      return
-    elif statements[0]=='moveAdd_from':
-      handleMoveAddFrom(statements,targetOffset);
-      return
-    elif statements[0]=='copyAdd_from':
-      handleCopyAddFrom(statements,targetOffset,temporaryCellOffset);
+      handleMoveFrom(statements,targetOffset,isAddEqualCommand);
       return
     else:
       raise SyntaxError("expected + or - got "+statements[0],statements)
@@ -418,7 +391,7 @@ def handleExpression(statements):
   #Copy a cell to target cell and to cell with offset temporaryCellOffset
   #After that we copy cell with temporaryCellOffset to source cell
   #And after that we may need to add/substract a fixed value
-  output.copyValue(startOffset,targetOffset,temporaryCellOffset)
+  output.copyValue(startOffset,targetOffset,temporaryCellOffset,isAddEqualCommand)
   if add:
     output.addOffset(targetOffset,add)
 
