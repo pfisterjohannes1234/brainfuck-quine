@@ -205,7 +205,6 @@ int main()
       sigaction(SIGSEGV,&a,NULL);
     #endif // !GENERATE_SIMPLE
 
-    p = p-STEP;
     while(data[p+OS_CHAR])
       { p = p-STEP; }
     p = p+STEP;
@@ -214,27 +213,16 @@ int main()
 
     while(data[p+OS_CHAR])
       {
-        //data[p+OS_DATA] = '+';
-        data[p+OS_DATA] = data[p+OS_DATA] + '+';
+        data[p+OS_DATA] = data[p+OS_DATA] + '>';
         data[p+OS_COUNER] = data[p+OS_CHAR];
         while(data[p+OS_COUNER])
           {
             write_char(data[p+OS_DATA]);
             data[p+OS_COUNER]--;
           }
-        data[p+OS_DATA] = data[p+OS_DATA] + '>'-'+';
-        //TODO Hardcode enroll
+        data[p+OS_DATA] = data[p+OS_DATA] + '+'-'-';
         STEP_N( write_char(data[p+OS_DATA]); )
         p=p+STEP;
-        // write_char(data[p+OS_DATA]);
-        // write_char(data[p+OS_DATA]);
-        // write_char(data[p+OS_DATA]);
-        // write_char(data[p+OS_DATA]);
-
-//        for(unsigned i=0;i<STEP;i++)
-//          {
-//            write_char(data[p+OS_DATA]);
-//          }
       }
 
     p = p-STEP;
